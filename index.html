@@ -182,8 +182,11 @@
             document.querySelectorAll('input[name="qjsj"], input[name="qjsj2"]').forEach(input => {
                 if(input) input.value = dateOnly;
             });
-            const qjsjSm = document.querySelector('#qjsj_sm .TTS');
-            if (qjsjSm) qjsjSm.textContent = `日期格式: ${dateOnly}`;
+            // 修正：更新两个版本中的日期格式提示
+            const qjsjSmElements = document.querySelectorAll('#qjsj_row .editVersion #qjsj_sm .TTS, #qjsj_row .displayVersion #qjsj_sm .TTS');
+            qjsjSmElements.forEach(el => {
+                if (el) el.textContent = `日期格式: ${dateOnly}`;
+            });
 
             // 3. 更新“班主任审批意见” (fdyspsj) 的初始时间
             if (jsonData.approval_time) {
@@ -203,18 +206,26 @@
             const nhxsjFormat = document.getElementById('nhxsj_format');
             if(nhxsjFormat) nhxsjFormat.textContent = `日期格式: ${dateOnly}`;
             
-            // 5. 更新表单 action URL 中的 czsj 时间戳
+            // 5. 更新“操作时间” (czsj) 的值
             const form = document.getElementById('form1');
-            if (form && form.action) {
+            const czsjInput = document.getElementById('czsj'); // The actual text input field
+            if (form && czsjInput) {
                 try {
-                    const url = new URL(form.getAttribute('action'), window.location.href);
+                    // Get time from JSON, fallback to current time
                     const czsjTimePart = jsonData.czsj || timeOnly;
+                    // The date is always the current date
                     const combinedCzsj = `${dateOnly} ${czsjTimePart}`;
+                    
+                    // 1. Update the visible input field's value
+                    czsjInput.value = combinedCzsj;
+
+                    // 2. Update the form action URL as well
+                    const url = new URL(form.getAttribute('action'), window.location.href);
                     const timestampForUrl = combinedCzsj.replace(' ', '_').replace(/:/g, '%3A');
                     url.searchParams.set('czsj', timestampForUrl);
                     form.action = url.toString();
                 } catch (e) {
-                    console.error("无法解析或更新表单的 action URL:", e);
+                    console.error("无法更新'czsj'字段:", e);
                 }
             }
             
@@ -400,7 +411,7 @@
             'xxspyj_row', 'sqqdpz_row', 'shbtgkyfkyy_row', 'bz_row'
         ];
 
-        function xzbc() {
+function xzbc() {
             const toggleLink = document.getElementById('bcToggle');
             const nearTh = document.getElementById('nearTh');
             const historyTd = document.getElementById('historyTd');
@@ -408,14 +419,31 @@
             const span = document.getElementById('stzp2');
             const formEl = document.getElementById('myFormContainer');
 
-            // Get containers for the new unified jtsj row
             const jtsjEdit = document.getElementById('jtsj_edit_container');
             const jtsjDisplay = document.getElementById('jtsj_display_container');
+            const bzrLabel = document.getElementById('fdyspyjdm_sb');
+            const bzrProjectRow = document.getElementById('fdyspyjdm_xs1');
 
             if (isBeichaMode) {
-                // --- SWITCHING TO: "取消备查模式" (Display/Read-only mode) ---
-                if (toggleLink) toggleLink.innerHTML = '>>备查模式';
+                // --- CORRECT LOGIC TO SET VALUES ---
+                // Set values directly from jsonData before showing the elements
+                if (typeof jsonData !== 'undefined') {
+                    const now = new Date();
+                    const dateOnly = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
+                    if (jsonData.operation_time) {
+                        const { hour, minute } = jsonData.operation_time;
+                        document.getElementById('jtsj_time_display_span').textContent = `${hour}:${minute}`;
+                    }
+                    if (jsonData.approval_time) {
+                        document.getElementById('fdyspsj').textContent = `${dateOnly} ${jsonData.approval_time}`;
+                    }
+                }
+
+                // --- ORIGINAL LOGIC TO TOGGLE DISPLAY ---
+                if (toggleLink) toggleLink.innerHTML = '>>备查模式';
+                if (bzrLabel) bzrLabel.textContent = '状态值:';
+                if (bzrProjectRow) bzrProjectRow.style.display = '';
                 if (nearTh) nearTh.style.display = 'none';
                 if (historyTd) historyTd.style.display = '';
 
@@ -424,45 +452,30 @@
                     formEl.classList.add('cancelFixedSize');
                 }
 
-                // Refactored: For jtsj, show text version
                 if (jtsjEdit && jtsjDisplay) {
-                    const h = document.getElementById('jtsj_time1').value;
-                    const m = document.getElementById('jtsj_time2').value;
-                    document.getElementById('jtsj_time_text').textContent = `${h}:${m}`;
                     jtsjEdit.style.display = 'none';
                     jtsjDisplay.style.display = '';
                 }
 
-                // Toggle other, non-refactored rows
                 const qjqx = document.getElementById('qjqx_row');
-                if (qjqx) {
-                    qjqx.querySelector('.editVersion').style.display = 'none';
-                    qjqx.querySelector('.displayVersion').style.display = '';
-                }
-                 const qjsj = document.getElementById('qjsj_row');
-                if (qjsj) {
-                    qjsj.querySelector('.editVersion').style.display = 'none';
-                    qjsj.querySelector('.displayVersion').style.display = '';
-                }
+                if (qjqx) { qjqx.querySelector('.editVersion').style.display = 'none'; qjqx.querySelector('.displayVersion').style.display = ''; }
+                const qjsj = document.getElementById('qjsj_row');
+                if (qjsj) { qjsj.querySelector('.editVersion').style.display = 'none'; qjsj.querySelector('.displayVersion').style.display = ''; }
                 const xy = document.getElementById('xyspyj_row');
-                if (xy) {
-                    xy.querySelector('.editVersion').style.display = 'none';
-                    xy.querySelector('.displayVersion').style.display = '';
-                }
+                if (xy) { xy.querySelector('.editVersion').style.display = 'none'; xy.querySelector('.displayVersion').style.display = ''; }
 
-                // Show all other _row rows
                 allToggleRows.forEach(id => {
                     const tr = document.getElementById(id);
                     if (tr) tr.style.display = '';
                 });
-
                 hidePhoto(img, span);
                 isBeichaMode = false;
 
             } else {
-                // --- SWITCHING TO: "备查模式" (Edit mode) ---
+                // --- ORIGINAL ELSE BLOCK ---
                 if (toggleLink) toggleLink.innerHTML = '>>取消备查模式';
-
+                if (bzrLabel) bzrLabel.textContent = '班主任审批意见:';
+                if (bzrProjectRow) bzrProjectRow.style.display = 'none';
                 if (nearTh) nearTh.style.display = '';
                 if (historyTd) historyTd.style.display = 'none';
 
@@ -470,36 +483,22 @@
                     formEl.classList.add('fixedSize');
                     formEl.classList.remove('cancelFixedSize');
                 }
-                
-                // Refactored: For jtsj, show editable dropdowns
+
                 if (jtsjEdit && jtsjDisplay) {
                     jtsjEdit.style.display = '';
                     jtsjDisplay.style.display = 'none';
                 }
-
-                // Toggle other, non-refactored rows
                 const qjqx = document.getElementById('qjqx_row');
-                if (qjqx) {
-                    qjqx.querySelector('.editVersion').style.display = '';
-                    qjqx.querySelector('.displayVersion').style.display = 'none';
-                }
+                if (qjqx) { qjqx.querySelector('.editVersion').style.display = ''; qjqx.querySelector('.displayVersion').style.display = 'none'; }
                 const qjsj = document.getElementById('qjsj_row');
-                if (qjsj) {
-                    qjsj.querySelector('.editVersion').style.display = '';
-                    qjsj.querySelector('.displayVersion').style.display = 'none';
-                }
+                if (qjsj) { qjsj.querySelector('.editVersion').style.display = ''; qjsj.querySelector('.displayVersion').style.display = 'none'; }
                 const xy2 = document.getElementById('xyspyj_row');
-                if (xy2) {
-                    xy2.querySelector('.editVersion').style.display = '';
-                    xy2.querySelector('.displayVersion').style.display = 'none';
-                }
+                if (xy2) { xy2.querySelector('.editVersion').style.display = ''; xy2.querySelector('.displayVersion').style.display = 'none'; }
 
-                // Hide other _row rows
                 allToggleRows.forEach(id => {
                     const tr = document.getElementById(id);
                     if (tr) tr.style.display = 'none';
                 });
-
                 showPhoto(img, span);
                 isBeichaMode = true;
             }
@@ -1075,7 +1074,7 @@
                                                         <tbody>
                                                             <tr>
                                                                 <td class="TDC">具体时间:</td>
-                                                                <td class="TDD" id="jtsj_time_text"></td>
+                                                                <td class="TDD"><span id="jtsj_time_display_span"></span></td>
                                                             </tr>
                                                         </tbody>
                                                     </table>
