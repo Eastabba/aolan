@@ -184,32 +184,96 @@
             const qjsjInput2 = document.getElementById('qjsj2');
             if (qjsjInput2) qjsjInput2.value = dateOnly;
 
-            // 更新 `<span id="fdyspsj">` 中的日期部分，保持时间不变
-            const fdyspsjEl = document.getElementById('fdyspsj');
-            if (fdyspsjEl) {
-                const parts = fdyspsjEl.textContent.split(' ');
-                const timePart = parts[1] || timeOnly;
-                fdyspsjEl.textContent = `${dateOnly} ${timePart}`;
+            // 3. 更新“班主任审批意见” (fdyspsj) 的初始时间
+            if (jsonData.approval_time) {
+                const approvalEl = document.getElementById('fdyspsj');
+                if (approvalEl) {
+                    approvalEl.textContent = `${dateOnly} ${jsonData.approval_time}`;
+                }
             }
 
-            // 更新 `<div id="near">`
-            document.getElementById('near').textContent = fullDate;
+            // 4. 更新拟回校时间 (nhxsj) 为明天
+            const nhxsjInput = document.getElementById('nhxsj');
+            if (nhxsjInput) {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                nhxsjInput.value = getChinaDateTime(tomorrow).dateOnly;
+            }
+            const nhxsjFormat = document.getElementById('nhxsj_format');
+            if (nhxsjFormat) nhxsjFormat.textContent = `日期格式: ${dateOnly}`;
 
-            // 更新 `<input name="qjsj">` 中的日期部分
-            document.getElementById('qjsj').value = dateOnly;
+            // 5. 更新“操作时间” (czsj) 的值
+            const form = document.getElementById('form1');
+            const czsjInput = document.getElementById('czsj'); // The actual text input field
+            if (form && czsjInput) {
+                try {
+                    // Get time from JSON, fallback to current time
+                    const czsjTimePart = jsonData.czsj || timeOnly;
+                    // The date is always the current date
+                    const combinedCzsj = `${dateOnly} ${czsjTimePart}`;
 
-            document.getElementById('qjsj2').value = dateOnly;
+                    // 1. Update the visible input field's value
+                    czsjInput.value = combinedCzsj;
 
-            // 更新 `<span id="fdyspsj">` 中的日期部分，保持时间不变
-            const currentFdyspsj = document.getElementById('fdyspsj').textContent.split(' ')[1];
-            document.getElementById('fdyspsj').textContent = `${dateOnly} ${currentFdyspsj}`;
-        }
+                    // 2. Update the form action URL as well
+                    const url = new URL(form.getAttribute('action'), window.location.href);
+                    const timestampForUrl = combinedCzsj.replace(' ', '_').replace(/:/g, '%3A');
+                    url.searchParams.set('czsj', timestampForUrl);
+                    form.action = url.toString();
+                } catch (e) {
+                    console.error("无法更新'czsj'字段:", e);
+                }
+            }
 
-        // 每秒更新一次
-        setInterval(updateDateTime, 1000);
+            // 6. 更新 "操作时间" (jtsj_time) 下拉框的初始值
+            if (jsonData.operation_time) {
+                const { hour, minute } = jsonData.operation_time;
+                document.getElementById('jtsj_time1').value = hour;
+                document.getElementById('jtsj_time2').value = minute;
 
-        // 页面加载时立即更新时间
-        window.onload = updateDateTime;
+                // Populate and set display mode dropdowns
+                const hourSelect = document.getElementById('jtsj_time1_1');
+                const minuteSelect = document.getElementById('jtsj_time2_2');
+
+                if (hourSelect && minuteSelect) {
+                    // Populate hours if they are not already there
+                    if (hourSelect.options.length === 0) {
+                        for (let i = 0; i < 24; i++) {
+                            const h = String(i).padStart(2, '0');
+                            hourSelect.add(new Option(h, h));
+                        }
+                    }
+
+                    // Populate minutes if they are not already there
+                    if (minuteSelect.options.length === 0) {
+                        for (let i = 0; i < 60; i++) {
+                            const m = String(i).padStart(2, '0');
+                            minuteSelect.add(new Option(m, m));
+                        }
+                    }
+
+                    // Set selected values
+                    hourSelect.value = hour;
+                    minuteSelect.value = minute;
+                }
+            }
+        };
+
+        // 页面加载完成后执行一次所有日期更新
+        updateAllDates();
+
+        // 然后，每秒只更新顶部的实时时钟
+        setInterval(() => {
+            const nearDiv = document.getElementById('near');
+            if (nearDiv) nearDiv.textContent = getChinaDateTime().fullDate;
+        }, 1000);
+    }
+
+        // 监听DOM加载完成事件来启动日期更新
+        window.addEventListener('DOMContentLoaded', () => {
+            // jsonData 现在由 <script src="data.js"> 提前载入，可以直接使用
+            setupDynamicDates(jsonData);
+        });
     </script>
     <script>
 
@@ -378,7 +442,19 @@
             const formEl = document.getElementById('myFormContainer');
 
             if (isBeichaMode) {
-                // 从 “备查模式” 切换为 “取消备查模式”
+                // --- CORRECT LOGIC TO SET VALUES ---
+                // Set values directly from jsonData before showing the elements
+                if (typeof jsonData !== 'undefined') {
+                    const now = new Date();
+                    const dateOnly = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+
+                    if (jsonData.approval_time) {
+                        document.getElementById('fdyspsj').textContent = `${dateOnly} ${jsonData.approval_time}`;
+                    }
+                }
+
+                // --- ORIGINAL LOGIC TO TOGGLE DISPLAY ---
                 if (toggleLink) toggleLink.innerHTML = '>>备查模式';
 
                 if (nearTh) nearTh.style.display = 'none';
@@ -1216,1231 +1292,979 @@
                                                 </table>
                                             </td>
 
-                                            <td class="displayVersion" style="display: none;">
+                                            <!-- Text-based display version -->
+                                            <div id="jtsj_display_container" style="display: none;">
                                                 <table>
                                                     <tbody>
-                                                        <tr id="jtsj_time_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="jtsj_time_xs">
-                                                                具体时间</td>
-                                                        </tr>
                                                         <tr>
-                                                            <td id="jtsj_time_sb" class="TDC">
-                                                                申报值:
-                                                            </td>
+                                                            <td class="TDC">具体时间:</td>
                                                             <td>
-                                                                <select name="jtsj_time1" id="jtsj_time1_1" size="1"
-                                                                    class="A1">
-                                                                    <option value="00">00</option>
-                                                                    <option value="01">01</option>
-                                                                    <option value="02">02</option>
-                                                                    <option value="03">03</option>
-                                                                    <option value="04">04</option>
-                                                                    <option value="05">05</option>
-                                                                    <option value="06">06</option>
-                                                                    <option value="07">07</option>
-                                                                    <option value="08">08</option>
-                                                                    <option value="09">09</option>
-                                                                    <option value="10">10</option>
-                                                                    <option value="11">11</option>
-                                                                    <option value="12">12</option>
-                                                                    <option value="13">13</option>
-                                                                    <option selected="selected" value="14">14</option>
-                                                                    <option value="15">15</option>
-                                                                    <option value="16">16</option>
-                                                                    <option value="17">17</option>
-                                                                    <option value="18">18</option>
-                                                                    <option value="19">19</option>
-                                                                    <option value="20">20</option>
-                                                                    <option value="21">21</option>
-                                                                    <option value="22">22</option>
-                                                                    <option value="23">23</option>
-                                                                </select>:
-                                                                <select name="jtsj_time2" id="jtsj_time2_2" size="1"
-                                                                    class="A1">
-                                                                    <option value="00">00</option>
-                                                                    <option value="01">01</option>
-                                                                    <option value="02">02</option>
-                                                                    <option value="03">03</option>
-                                                                    <option value="04">04</option>
-                                                                    <option value="05">05</option>
-                                                                    <option value="06">06</option>
-                                                                    <option value="07">07</option>
-                                                                    <option value="08">08</option>
-                                                                    <option value="09">09</option>
-                                                                    <option selected="selected" value="10">10</option>
-                                                                    <option value="11">11</option>
-                                                                    <option value="12">12</option>
-                                                                    <option value="13">13</option>
-                                                                    <option value="14">14</option>
-                                                                    <option value="15">15</option>
-                                                                    <option value="16">16</option>
-                                                                    <option value="17">17</option>
-                                                                    <option value="18">18</option>
-                                                                    <option value="19">19</option>
-                                                                    <option value="20">20</option>
-                                                                    <option value="21">21</option>
-                                                                    <option value="22">22</option>
-                                                                    <option value="23">23</option>
-                                                                    <option value="24">24</option>
-                                                                    <option value="25">25</option>
-                                                                    <option value="26">26</option>
-                                                                    <option value="27">27</option>
-                                                                    <option value="28">28</option>
-                                                                    <option value="29">29</option>
-                                                                    <option value="30">30</option>
-                                                                    <option value="31">31</option>
-                                                                    <option value="32">32</option>
-                                                                    <option value="33">33</option>
-                                                                    <option value="34">34</option>
-                                                                    <option value="35">35</option>
-                                                                    <option value="36">36</option>
-                                                                    <option value="37">37</option>
-                                                                    <option value="38">38</option>
-                                                                    <option value="39">39</option>
-                                                                    <option value="40">40</option>
-                                                                    <option value="41">41</option>
-                                                                    <option value="42">42</option>
-                                                                    <option value="43">43</option>
-                                                                    <option value="44">44</option>
-                                                                    <option value="45">45</option>
-                                                                    <option value="46">46</option>
-                                                                    <option value="47">47</option>
-                                                                    <option value="48">48</option>
-                                                                    <option value="49">49</option>
-                                                                    <option value="50">50</option>
-                                                                    <option value="51">51</option>
-                                                                    <option value="52">52</option>
-                                                                    <option value="53">53</option>
-                                                                    <option value="54">54</option>
-                                                                    <option value="55">55</option>
-                                                                    <option value="56">56</option>
-                                                                    <option value="57">57</option>
-                                                                    <option value="58">58</option>
-                                                                    <option value="59">59</option>
-                                                                </select>
-                                                                <input name="jtsj_time" type="hidden" id="jtsj_time"
-                                                                    value="14:00" readonly=""
-                                                                    style="background-color: rgb(230, 230, 230);">
-                                                            </td>
-                                                        </tr>
-                                                        <tr id="jtsj_time_sm">
-                                                            <td></td>
-                                                            <td class="TTS">出校或回宿舍的学生填写
+                                                                <select name="jtsj_time1_1" id="jtsj_time1_1" size="1"
+                                                                    class="A1"></select>:
+                                                                <select name="jtsj_time2_2" id="jtsj_time2_2" size="1"
+                                                                    class="A1"></select>
                                                             </td>
                                                         </tr>
                                                     </tbody>
                                                 </table>
+                                            </div>
+                            </td>
+                        </tr>
+                        <tr id="qjsy_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="qjsydm_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="qjsydm_xs" class="TDD">
+                                                <a style="cursor: default"
+                                                    bonclick="xzxdm('qjsy','','','qjjtyy','QJSYDM')">
+                                                    请假事由</a>
                                             </td>
                                         </tr>
-                                        <tr id="qjsy_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="qjsydm_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="qjsydm_xs" class="TDD">
-                                                                <a style="cursor: default"
-                                                                    bonclick="xzxdm('qjsy','','','qjjtyy','QJSYDM')">
-                                                                    请假事由</a>
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="qjsydm_sb" class="TDC">
-                                                                申报值:
-                                                            </td>
-                                                            <td id="qjsy_xs">
-                                                                <input name="qjsy" type="text" id="qjsy" value="事假"
-                                                                    maxlength="20" class="TD1"
-                                                                    onclick="xzxdm('qjsy','','','qjjtyy','QJSYDM')"
-                                                                    onchange="tchang1('qjsy')"
-                                                                    onkeydown="onkeydown1('jtsj_time','qjsydm')"
-                                                                    size="22" alt=""
-                                                                    style="background-color: rgb(230, 230, 230);">
-                                                                <input name="qjsydm" type="hidden" id="qjsydm"
-                                                                    value="01">
-                                                            </td>
-                                                        </tr>
-                                                        <tr id="qjsydm_sm">
-                                                            <td></td>
-                                                            <td class="TTS">请提前与班主任沟通好
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
+                                        <tr>
+                                            <td id="qjsydm_sb" class="TDC">
+                                                申报值:
+                                            </td>
+                                            <td id="qjsy_xs">
+                                                <input name="qjsy" type="text" id="qjsy" value="事假" maxlength="20"
+                                                    class="TD1" onclick="xzxdm('qjsy','','','qjjtyy','QJSYDM')"
+                                                    onchange="tchang1('qjsy')"
+                                                    onkeydown="onkeydown1('jtsj_time','qjsydm')" size="22" alt=""
+                                                    style="background-color: rgb(230, 230, 230);">
+                                                <input name="qjsydm" type="hidden" id="qjsydm" value="01">
                                             </td>
                                         </tr>
-                                        <tr id="qjjtyy_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="qjjtyy_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="qjjtyy_xs">
-                                                                请假具体原因</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="qjjtyy_sb" class="TDC">
-                                                                申报值:
-                                                            </td>
-                                                            <td>
-                                                                <textarea name="qjjtyy" id="qjjtyy" width="300"
-                                                                    class="TD2" height="30px" textmode="MultiLine"
-                                                                    rows="5" cols="35"
-                                                                    style="background-color: rgb(230, 230, 230); width: 315px !important; height: auto;">回家</textarea>
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="wcmdd_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="wcmddm_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="wcmddm_xs" class="TDD">
-                                                                <a style="cursor: default"
-                                                                    bonclick="xzxdm('wcmd','','','fjm','XZQHDM')">
-                                                                    外出目的地</a>
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="wcmddm_sb" class="TDC">
-                                                                申报值:
-                                                            </td>
-                                                            <td id="wcmd_xs">
-                                                                <input name="wcmd" type="text" id="wcmd"
-                                                                    value="江苏省南京市雨花台区" maxlength="36" class="TD1"
-                                                                    readonly=""
-                                                                    onclick="xzxdm('wcmd','','','fjm','XZQHDM')"
-                                                                    onchange="tchang1('wcmd')"
-                                                                    onkeydown="onkeydown1('qjjtyy','wcmddm')" size="30"
-                                                                    alt=""
-                                                                    style="background-color: rgb(230, 230, 230);">
-                                                                <input name="wcmddm" type="hidden" id="wcmddm"
-                                                                    value="320114">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="fj_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="fjm_xs1">
-                                                            <td id="fjm_xs" colspan="2">
-                                                                附件</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td colspan="2" class="TTS">
-                                                                <span id="fjxs" maintainstate="false"
-                                                                    style="font-family: arial;font-size: 16px;color:green"></span>
-                                                                <input name="File1" type="file" id="File1"
-                                                                    style="width:265;height: 25;font-family: SimSun; font-size: 16px; border: 1px solid #DBDBDB; overflow:hidden">
-                                                                <input name="fjm" type="hidden" id="fjm" readonly=""
-                                                                    style="background-color: rgb(230, 230, 230);">
-                                                            </td>
-                                                        </tr>
-                                                        <tr id="fjm_sm">
-                                                            <td colspan="2" class="TTS">上传证明材料
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="qgxyxdtxqjdkc_row" style="display: none;">
-                                            <td style="text-align:center" colspan="2" class="TDP">
-                                                <b>请勾选以下当天需请假的课节</b>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_zzx_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck_00_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck_00_xs">
-                                                                <input name="ck_00" type="checkbox" id="ck_00"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck_00')" readonly=""
-                                                                    disabled="">早自习
-                                                                <input name="ck_ck_00" type="hidden" id="ck_ck_00"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_1_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck_01_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck_01_xs">
-                                                                <input name="ck_01" type="checkbox" id="ck_01"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck_01')"
-                                                                    onclick="onCheckLock(this)">第一节课
-                                                                <input name="ck_ck_01" type="hidden" id="ck_ck_01"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_2_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck_02_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck_02_xs">
-                                                                <input name="ck_02" type="checkbox" id="ck_02"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck_02')"
-                                                                    onclick="onCheckLock(this)">第二节课
-                                                                <input name="ck_ck_02" type="hidden" id="ck_ck_02"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_3_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck_03_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck_03_xs">
-                                                                <input name="ck_03" type="checkbox" id="ck_03"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck_03')"
-                                                                    onclick="onCheckLock(this)">第三节课
-                                                                <input name="ck_ck_03" type="hidden" id="ck_ck_03"
-                                                                    value="True">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_4_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck_04_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck_04_xs">
-                                                                <input name="ck_04" type="checkbox" id="ck_04"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck_04')"
-                                                                    onclick="onCheckLock(this)">第四节课
-                                                                <input name="ck_ck_04" type="hidden" id="ck_ck_04"
-                                                                    value="True">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_5_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck_05_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck_05_xs">
-                                                                <input name="ck_05" type="checkbox" id="ck_05"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck_05')"
-                                                                    onclick="onCheckLock(this)">第五节课
-                                                                <input name="ck_ck_05" type="hidden" id="ck_ck_05"
-                                                                    value="True">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_6_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck_06_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck_06_xs">
-                                                                <input name="ck_06" type="checkbox" id="ck_06"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck_06')"
-                                                                    onclick="onCheckLock(this)">第六节课
-                                                                <input name="ck_ck_06" type="hidden" id="ck_ck_06"
-                                                                    value="True">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_7_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck_07_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck_07_xs">
-                                                                <input name="ck_07" type="checkbox" id="ck_07"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck_07')"
-                                                                    onclick="onCheckLock(this)">第七节课
-                                                                <input name="ck_ck_07" type="hidden" id="ck_ck_07"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_8_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck_08_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck_08_xs">
-                                                                <input name="ck_08" type="checkbox" id="ck_08"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck_08')"
-                                                                    onclick="onCheckLock(this)">第八节课
-                                                                <input name="ck_ck_08" type="hidden" id="ck_ck_08"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_wzx_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck_99_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck_99_xs">
-                                                                <input name="ck_99" type="checkbox" id="ck_99"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck_99')" readonly=""
-                                                                    disabled="">晚自习
-                                                                <input name="ck_ck_99" type="hidden" id="ck_ck_99"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_bgq_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck_bgq_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck_bgq_xs">
-                                                                <input name="ck_bgq" type="checkbox" id="ck_bgq"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck_bgq')" readonly=""
-                                                                    disabled="">不归寝
-                                                                <input name="ck_ck_bgq" type="hidden" id="ck_ck_bgq"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="nhxsj_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="nhxsj_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="nhxsj_xs">
-                                                                <a ondblclick="fdate('nhxsj')">拟回校时间</a>
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td style="text-align:right;white-space:nowrap;letter-spacing:normal"
-                                                                id="nhxsj_sb" class="TDD">
-                                                                <a onclick="fdate('nhxsj')">申报值:</a>
-                                                            </td>
-                                                            <td>
-                                                                <input name="nhxsj" type="text" id="nhxsj" size="12"
-                                                                    class="TD1" onchange="hj()" maxlength="12"
-                                                                    onkeydown="onkeydown1('ck_bgq','nhxsj',event)"
-                                                                    value="2025-11-19" readonly=""
-                                                                    style="background-color: rgb(230, 230, 230);">
-                                                            </td>
-                                                        </tr>
-                                                        <tr id="nhxsj_sm">
-                                                            <td></td>
-                                                            <td class="TTS"><span
-                                                                    id="nhxsj_format">日期格式:2025-10-13</span></td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="hxjtsj_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="hxjt_time_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="hxjt_time_xs">
-                                                                回校具体时间</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="hxjt_time_sb" class="TDC">
-                                                                申报值:
-                                                            </td>
-                                                            <td>
-                                                                <select name="hxjt_time1" id="hxjt_time1" size="1"
-                                                                    class="A1" disabled="">
-                                                                    <option value="00">00</option>
-                                                                    <option value="01">01</option>
-                                                                    <option value="02">02</option>
-                                                                    <option value="03">03</option>
-                                                                    <option value="04">04</option>
-                                                                    <option value="05">05</option>
-                                                                    <option value="06">06</option>
-                                                                    <option value="07">07</option>
-                                                                    <option selected="selected" value="08">08</option>
-                                                                    <option value="09">09</option>
-                                                                    <option value="10">10</option>
-                                                                    <option value="11">11</option>
-                                                                    <option value="12">12</option>
-                                                                    <option value="13">13</option>
-                                                                    <option value="14">14</option>
-                                                                    <option value="15">15</option>
-                                                                    <option value="16">16</option>
-                                                                    <option value="17">17</option>
-                                                                    <option value="18">18</option>
-                                                                    <option value="19">19</option>
-                                                                    <option value="20">20</option>
-                                                                    <option value="21">21</option>
-                                                                    <option value="22">22</option>
-                                                                    <option value="23">23</option>
-                                                                </select>:
-                                                                <select name="hxjt_time2" id="hxjt_time2" size="1"
-                                                                    class="A1" disabled="">
-                                                                    <option selected="selected" value="00">00</option>
-                                                                    <option value="01">01</option>
-                                                                    <option value="02">02</option>
-                                                                    <option value="03">03</option>
-                                                                    <option value="04">04</option>
-                                                                    <option value="05">05</option>
-                                                                    <option value="06">06</option>
-                                                                    <option value="07">07</option>
-                                                                    <option value="08">08</option>
-                                                                    <option value="09">09</option>
-                                                                    <option value="10">10</option>
-                                                                    <option value="11">11</option>
-                                                                    <option value="12">12</option>
-                                                                    <option value="13">13</option>
-                                                                    <option value="14">14</option>
-                                                                    <option value="15">15</option>
-                                                                    <option value="16">16</option>
-                                                                    <option value="17">17</option>
-                                                                    <option value="18">18</option>
-                                                                    <option value="19">19</option>
-                                                                    <option value="20">20</option>
-                                                                    <option value="21">21</option>
-                                                                    <option value="22">22</option>
-                                                                    <option value="23">23</option>
-                                                                    <option value="24">24</option>
-                                                                    <option value="25">25</option>
-                                                                    <option value="26">26</option>
-                                                                    <option value="27">27</option>
-                                                                    <option value="28">28</option>
-                                                                    <option value="29">29</option>
-                                                                    <option value="30">30</option>
-                                                                    <option value="31">31</option>
-                                                                    <option value="32">32</option>
-                                                                    <option value="33">33</option>
-                                                                    <option value="34">34</option>
-                                                                    <option value="35">35</option>
-                                                                    <option value="36">36</option>
-                                                                    <option value="37">37</option>
-                                                                    <option value="38">38</option>
-                                                                    <option value="39">39</option>
-                                                                    <option value="40">40</option>
-                                                                    <option value="41">41</option>
-                                                                    <option value="42">42</option>
-                                                                    <option value="43">43</option>
-                                                                    <option value="44">44</option>
-                                                                    <option value="45">45</option>
-                                                                    <option value="46">46</option>
-                                                                    <option value="47">47</option>
-                                                                    <option value="48">48</option>
-                                                                    <option value="49">49</option>
-                                                                    <option value="50">50</option>
-                                                                    <option value="51">51</option>
-                                                                    <option value="52">52</option>
-                                                                    <option value="53">53</option>
-                                                                    <option value="54">54</option>
-                                                                    <option value="55">55</option>
-                                                                    <option value="56">56</option>
-                                                                    <option value="57">57</option>
-                                                                    <option value="58">58</option>
-                                                                    <option value="59">59</option>
-                                                                </select>
-                                                                <input name="hxjt_time" type="hidden" id="hxjt_time"
-                                                                    value="08:00" readonly=""
-                                                                    style="background-color: rgb(230, 230, 230);">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="qjts_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="qjts_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="qjts_xs">
-                                                                请假天数</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="qjts_sb" class="TDC">
-                                                                申报值:
-                                                            </td>
-                                                            <td>
-                                                                <input name="qjts" type="text" id="qjts" readonly=""
-                                                                    size="6" class="TD3" maxlength="10"
-                                                                    onkeydown="onkeydown1('hxjt_time','qjts',event)"
-                                                                    value="2"
-                                                                    style="background-color: rgb(230, 230, 230);">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="qgxyxhxdtxqjdkj_row" style="display: none;">
-                                            <td style="text-align:center" colspan="2" class="TDP">
-                                                <b>请勾选以下回校当天需请假的课节</b>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_hxzzx_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck2_00_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck2_00_xs">
-                                                                <input name="ck2_00" type="checkbox" id="ck2_00"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck2_00')" readonly=""
-                                                                    disabled="">回校早自习(不上)
-                                                                <input name="ck_ck2_00" type="hidden" id="ck_ck2_00"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_hx1_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck2_01_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck2_01_xs">
-                                                                <input name="ck2_01" type="checkbox" id="ck2_01"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck2_01')" readonly=""
-                                                                    disabled="">回校第一节课(不上)
-                                                                <input name="ck_ck2_01" type="hidden" id="ck_ck2_01"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_hx2_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck2_02_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck2_02_xs">
-                                                                <input name="ck2_02" type="checkbox" id="ck2_02"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck2_02')" readonly=""
-                                                                    disabled="">回校第二节课(不上)
-                                                                <input name="ck_ck2_02" type="hidden" id="ck_ck2_02"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_hx3_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck2_03_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck2_03_xs">
-                                                                <input name="ck2_03" type="checkbox" id="ck2_03"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck2_03')" readonly=""
-                                                                    disabled="">回校第三节课(不上)
-                                                                <input name="ck_ck2_03" type="hidden" id="ck_ck2_03"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_hx4_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck2_04_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck2_04_xs">
-                                                                <input name="ck2_04" type="checkbox" id="ck2_04"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck2_04')" readonly=""
-                                                                    disabled="">回校第四节课(不上)
-                                                                <input name="ck_ck2_04" type="hidden" id="ck_ck2_04"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_hx5_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck2_05_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck2_05_xs">
-                                                                <input name="ck2_05" type="checkbox" id="ck2_05"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck2_05')" readonly=""
-                                                                    disabled="">回校第五节课(不上)
-                                                                <input name="ck_ck2_05" type="hidden" id="ck_ck2_05"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_hx6_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck2_06_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck2_06_xs">
-                                                                <input name="ck2_06" type="checkbox" id="ck2_06"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck2_06')" readonly=""
-                                                                    disabled="">回校第六节课(不上)
-                                                                <input name="ck_ck2_06" type="hidden" id="ck_ck2_06"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_hx7_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck2_07_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck2_07_xs">
-                                                                <input name="ck2_07" type="checkbox" id="ck2_07"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck2_07')" readonly=""
-                                                                    disabled="">回校第七节课(不上)
-                                                                <input name="ck_ck2_07" type="hidden" id="ck_ck2_07"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_hx8_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck2_08_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck2_08_xs">
-                                                                <input name="ck2_08" type="checkbox" id="ck2_08"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck2_08')" readonly=""
-                                                                    disabled="">回校第八节课(不上)
-                                                                <input name="ck_ck2_08" type="hidden" id="ck_ck2_08"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_hxwzx_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck2_99_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck2_99_xs">
-                                                                <input name="ck2_99" type="checkbox" id="ck2_99"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck2_99')" readonly=""
-                                                                    disabled="">回校晚自习(不上)
-                                                                <input name="ck_ck2_99" type="hidden" id="ck_ck2_99"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xm_hxbgq_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="ck2_bgq_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="ck2_bgq_xs">
-                                                                <input name="ck2_bgq" type="checkbox" id="ck2_bgq"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('ck2_bgq')" readonly=""
-                                                                    disabled="">回校不归寝
-                                                                <input name="ck_ck2_bgq" type="hidden" id="ck_ck2_bgq"
-                                                                    value="false">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="czsj_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="czsj_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="czsj_xs">
-                                                                操作时间</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="czsj_sb" class="TDC">
-                                                                申报值:
-                                                            </td>
-                                                            <td>
-                                                                <input name="czsj" type="text" id="czsj"
-                                                                    value="2025-12-23 13:28:44" maxlength="21"
-                                                                    class="TD1" tabindex="100"
-                                                                    style="background-color: #E6E6E6"
-                                                                    onkeydown="onkeydown1('ck2_bgq','czsj',event)"
-                                                                    size="21" readonly="">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="czr_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="uname_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="uname_xs">
-                                                                操作人</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="uname_sb" class="TDC">
-                                                                申报值:
-                                                            </td>
-                                                            <td>
-                                                                <input name="uname" type="text" id="uname" value="记得改名字"
-                                                                    maxlength="62" class="TD1" tabindex="100"
-                                                                    style="background-color: #FFFFFF"
-                                                                    onkeydown="onkeydown1('czsj','uname',event)"
-                                                                    size="30" alt="">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="bzrspyj_row">
-                                            <td class="editVersion">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="fdyspyjdm_xs1" style="display: none;">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="fdyspyjdm_xs">
-                                                                班主任审批意见</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="fdyspyjdm_sb" class="TDC">
-
-                                                                班主任审批意见:
-                                                            </td>
-                                                            <td>
-                                                                <input name="fdyspyj" type="text" id="fdyspyj"
-                                                                    value="同意" maxlength="6" class="TD1"
-                                                                    onchange="tchang1('fdyspyj')"
-                                                                    style="background-color: #E6E6E6"
-                                                                    onkeydown="onkeydown1('uname','fdyspyjdm',event)"
-                                                                    size="8" readonly="">
-                                                                <span id="fdy">葛玉婷</span>
-                                                                <br><span id="fdyspsj">2025-12-23 13:32:51</span>
-                                                                <input name="fdyspyjdm" type="hidden" id="fdyspyjdm"
-                                                                    value="1">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-
-                                            <td class="displayVersion" style="display: none;">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="fdyspyjdm_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="fdyspyjdm_xs">
-                                                                班主任审批意见</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="fdyspyjdm_sb" class="TDC">
-                                                                状态值:
-                                                            </td>
-                                                            <td>
-                                                                <input name="fdyspyj" type="text" id="fdyspyj"
-                                                                    value="同意" maxlength="6" class="TD1"
-                                                                    onchange="tchang1('fdyspyj')"
-                                                                    style="background-color: #E6E6E6"
-                                                                    onkeydown="onkeydown1('uname','fdyspyjdm',event)"
-                                                                    size="8" readonly="">
-                                                                <span id="fdy">葛玉婷</span>
-                                                                <br><span id="fdyspsj">2025-12-23 13:32:51</span>
-                                                                <input name="fdyspyjdm" type="hidden" id="fdyspyjdm"
-                                                                    value="1">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xyspyj_row">
-                                            <td class="editVersion">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="yxspyjdm_xs1" style="display: none;">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="yxspyjdm_xs">
-                                                                学院审批意见</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="yxspyjdm_sb" class="TDC">
-
-                                                                学院审批意见:
-                                                            </td>
-                                                            <td>
-                                                                <input name="yxspyj" type="text" id="yxspyj"
-                                                                    maxlength="6" class="TD1"
-                                                                    onchange="tchang1('yxspyj')"
-                                                                    style="background-color: #E6E6E6"
-                                                                    onkeydown="onkeydown1('fdyspyjdm','yxspyjdm',event)"
-                                                                    size="8" readonly="" alt="">
-                                                                <span id="yxspr"></span>
-                                                                <br><span id="yxspsj"></span>
-                                                                <input name="yxspyjdm" type="hidden" id="yxspyjdm">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-
-                                            <td class="displayVersion" style="display: none;">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="yxspyjdm_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="yxspyjdm_xs">
-                                                                学院审批意见</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="yxspyjdm_sb" class="TDC">
-                                                                状态值:
-                                                            </td>
-                                                            <td>
-                                                                <input name="yxspyj" type="text" id="yxspyj"
-                                                                    maxlength="6" class="TD1"
-                                                                    onchange="tchang1('yxspyj')"
-                                                                    style="background-color: #E6E6E6"
-                                                                    onkeydown="onkeydown1('fdyspyjdm','yxspyjdm',event)"
-                                                                    size="8" readonly="" alt="">
-                                                                <span id="yxspr"></span>
-                                                                <br><span id="yxspsj"></span>
-                                                                <input name="yxspyjdm" type="hidden" id="yxspyjdm">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="xxspyj_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="xjspyjdm_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="xjspyjdm_xs">
-                                                                学校审批意见</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="xjspyjdm_sb" class="TDC">
-                                                                状态值:
-                                                            </td>
-                                                            <td>
-                                                                <input name="xjspyj" type="text" id="xjspyj"
-                                                                    maxlength="6" class="TD1"
-                                                                    onchange="tchang1('xjspyj')"
-                                                                    style="background-color: #E6E6E6"
-                                                                    onkeydown="onkeydown1('yxspyjdm','xjspyjdm',event)"
-                                                                    size="8" readonly="">
-                                                                <span id="xjspr"></span>
-                                                                <br><span id="xjspsj"></span>
-                                                                <input name="xjspyjdm" type="hidden" id="xjspyjdm">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="sqqdpz_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="sqpzck_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="sqpzck_xs">
-                                                                <input name="sqpzck" type="checkbox" id="sqpzck"
-                                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
-                                                                    value="ON" bonclick="ckfun('sqpzck')"
-                                                                    checked="checked" readonly="" disabled="">申请确定批准
-                                                                <input name="ck_sqpzck" type="hidden" id="ck_sqpzck"
-                                                                    value="True">
-                                                            </td>
-                                                        </tr>
-                                                        <tr id="sqpzck_sm">
-                                                            <td></td>
-                                                            <td class="TTS">此项是作为申请最终的批准状态
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr id="shbtgkyfkyy_row" style="display: none;">
-                                            <td style="text-align:center" colspan="2" class="TDP">
-                                                <b>审核不通过可以反馈原因</b>
-                                            </td>
-                                        </tr>
-                                        <tr id="bz_row" style="display: none;">
-                                            <td class="TDB">
-                                                <table>
-                                                    <tbody>
-                                                        <tr id="bz1_xs1">
-                                                            <td class="TDC">
-                                                                项目:
-                                                            </td>
-                                                            <td id="bz1_xs">
-                                                                备注</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td id="bz1_sb" class="TDC">
-                                                                申报值:
-                                                            </td>
-                                                            <td>
-                                                                <input name="bz1" type="text" id="bz1" size="22"
-                                                                    class="TD1" maxlength="22"
-                                                                    onkeydown="onkeydown1('sqpzck','bz1',event)"
-                                                                    readonly=""
-                                                                    style="background-color: rgb(230, 230, 230);">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
+                                        <tr id="qjsydm_sm">
+                                            <td></td>
+                                            <td class="TTS">请提前与班主任沟通好
                                             </td>
                                         </tr>
                                     </tbody>
                                 </table>
-                                <br>
-                                <table style="width:100%;border:0;border-collapse:collapse">
+                            </td>
+                        </tr>
+                        <tr id="qjjtyy_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
                                     <tbody>
-                                        <tr>
-                                            <td style="width:100%;height:23;vertical-align:bottom;white-space:nowrap;letter-spacing:normal"
-                                                id="bc_xs">
-
-                                                <input type="button" onclick="xj();" value="新建"
-                                                    style="width:70;height: 30; color: #0000FF; font-family: 微软雅黑; font-size: 16px; background-color: #FFFFCA">
-                                                &nbsp;
-
-                                                <br><span id="MESSAGE" maintainstate="false"
-                                                    style="font-family: 微软雅黑;font-size: 9pt;color:red"></span>
+                                        <tr id="qjjtyy_xs1">
+                                            <td class="TDC">
+                                                项目:
                                             </td>
+                                            <td id="qjjtyy_xs">
+                                                请假具体原因</td>
                                         </tr>
                                         <tr>
-                                            <td style="text-align:center"><br><img alt="" onclick="syb();"
-                                                    src="img/syb.gif"><br></td>
-                                        </tr>
-                                        <tr>
-                                            <td style="vertical-align:top">
-                                                <table id="dylist" style="border:0;border-collapse:collapse">
-
-                                                    <tbody>
-                                                        <tr>
-                                                            <td>
-                                                            </td>
-                                                        </tr>
-
-                                                    </tbody>
-                                                </table>
+                                            <td id="qjjtyy_sb" class="TDC">
+                                                申报值:
                                             </td>
-                                        </tr>
-                                        <tr>
-                                            <td style="width:100%;height:23;vertical-align:bottom">
-                                                <br><input type="button"
-                                                    onclick="window.location.href='http://stu.njevc.edu.cn/mobile/default.aspx'"
-                                                    value="&lt;&lt;回首页"
-                                                    style="width:100;height: 30; color: #0000FF; font-family: 微软雅黑; font-size: 16px; background-color: #FFFFCA"
-                                                    alt="">
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td><iframe name="r_3_5" id="r_3_5" src="" width="0" height="0"
-                                                    style="border:0;border-collapse:collapse"></iframe></td>
-                                        </tr>
-                                        <tr>
                                             <td>
-                                                <iframe name="download" id="download" src="" width="0" height="0"
-                                                    style="border:0;border-collapse:collapse"></iframe>
+                                                <textarea name="qjjtyy" id="qjjtyy" width="300" class="TD2"
+                                                    height="30px" textmode="MultiLine" rows="5" cols="35"
+                                                    style="background-color: rgb(230, 230, 230); width: 315px !important; height: auto;">回家</textarea>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="wcmdd_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="wcmddm_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="wcmddm_xs" class="TDD">
+                                                <a style="cursor: default"
+                                                    bonclick="xzxdm('wcmd','','','fjm','XZQHDM')">
+                                                    外出目的地</a>
                                             </td>
                                         </tr>
                                         <tr>
+                                            <td id="wcmddm_sb" class="TDC">
+                                                申报值:
+                                            </td>
+                                            <td id="wcmd_xs">
+                                                <input name="wcmd" type="text" id="wcmd" value="江苏省南京市雨花台区"
+                                                    maxlength="36" class="TD1" readonly=""
+                                                    onclick="xzxdm('wcmd','','','fjm','XZQHDM')"
+                                                    onchange="tchang1('wcmd')" onkeydown="onkeydown1('qjjtyy','wcmddm')"
+                                                    size="30" alt="" style="background-color: rgb(230, 230, 230);">
+                                                <input name="wcmddm" type="hidden" id="wcmddm" value="320114">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="fj_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="fjm_xs1">
+                                            <td id="fjm_xs" colspan="2">
+                                                附件</td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="2" class="TTS">
+                                                <span id="fjxs" maintainstate="false"
+                                                    style="font-family: arial;font-size: 16px;color:green"></span>
+                                                <input name="File1" type="file" id="File1"
+                                                    style="width:265;height: 25;font-family: SimSun; font-size: 16px; border: 1px solid #DBDBDB; overflow:hidden">
+                                                <input name="fjm" type="hidden" id="fjm" readonly=""
+                                                    style="background-color: rgb(230, 230, 230);">
+                                            </td>
+                                        </tr>
+                                        <tr id="fjm_sm">
+                                            <td colspan="2" class="TTS">上传证明材料
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="qgxyxdtxqjdkc_row" style="display: none;">
+                            <td style="text-align:center" colspan="2" class="TDP">
+                                <b>请勾选以下当天需请假的课节</b>
+                            </td>
+                        </tr>
+                        <tr id="xm_zzx_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck_00_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck_00_xs">
+                                                <input name="ck_00" type="checkbox" id="ck_00"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck_00')" readonly="" disabled="">早自习
+                                                <input name="ck_ck_00" type="hidden" id="ck_ck_00" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_1_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck_01_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck_01_xs">
+                                                <input name="ck_01" type="checkbox" id="ck_01"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck_01')"
+                                                    onclick="onCheckLock(this)">第一节课
+                                                <input name="ck_ck_01" type="hidden" id="ck_ck_01" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_2_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck_02_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck_02_xs">
+                                                <input name="ck_02" type="checkbox" id="ck_02"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck_02')"
+                                                    onclick="onCheckLock(this)">第二节课
+                                                <input name="ck_ck_02" type="hidden" id="ck_ck_02" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_3_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck_03_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck_03_xs">
+                                                <input name="ck_03" type="checkbox" id="ck_03"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck_03')"
+                                                    onclick="onCheckLock(this)">第三节课
+                                                <input name="ck_ck_03" type="hidden" id="ck_ck_03" value="True">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_4_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck_04_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck_04_xs">
+                                                <input name="ck_04" type="checkbox" id="ck_04"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck_04')"
+                                                    onclick="onCheckLock(this)">第四节课
+                                                <input name="ck_ck_04" type="hidden" id="ck_ck_04" value="True">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_5_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck_05_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck_05_xs">
+                                                <input name="ck_05" type="checkbox" id="ck_05"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck_05')"
+                                                    onclick="onCheckLock(this)">第五节课
+                                                <input name="ck_ck_05" type="hidden" id="ck_ck_05" value="True">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_6_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck_06_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck_06_xs">
+                                                <input name="ck_06" type="checkbox" id="ck_06"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck_06')"
+                                                    onclick="onCheckLock(this)">第六节课
+                                                <input name="ck_ck_06" type="hidden" id="ck_ck_06" value="True">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_7_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck_07_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck_07_xs">
+                                                <input name="ck_07" type="checkbox" id="ck_07"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck_07')"
+                                                    onclick="onCheckLock(this)">第七节课
+                                                <input name="ck_ck_07" type="hidden" id="ck_ck_07" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_8_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck_08_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck_08_xs">
+                                                <input name="ck_08" type="checkbox" id="ck_08"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck_08')"
+                                                    onclick="onCheckLock(this)">第八节课
+                                                <input name="ck_ck_08" type="hidden" id="ck_ck_08" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_wzx_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck_99_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck_99_xs">
+                                                <input name="ck_99" type="checkbox" id="ck_99"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck_99')" readonly="" disabled="">晚自习
+                                                <input name="ck_ck_99" type="hidden" id="ck_ck_99" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_bgq_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck_bgq_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck_bgq_xs">
+                                                <input name="ck_bgq" type="checkbox" id="ck_bgq"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck_bgq')" readonly="" disabled="">不归寝
+                                                <input name="ck_ck_bgq" type="hidden" id="ck_ck_bgq" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="nhxsj_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="nhxsj_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="nhxsj_xs">
+                                                <a ondblclick="fdate('nhxsj')">拟回校时间</a>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="text-align:right;white-space:nowrap;letter-spacing:normal"
+                                                id="nhxsj_sb" class="TDD">
+                                                <a onclick="fdate('nhxsj')">申报值:</a>
+                                            </td>
                                             <td>
-                                                <iframe name="print_t" id="print_t" src="" width="0" height="0"
-                                                    style="border:0;border-collapse:collapse"></iframe>
+                                                <input name="nhxsj" type="text" id="nhxsj" size="12" class="TD1"
+                                                    onchange="hj()" maxlength="12"
+                                                    onkeydown="onkeydown1('ck_bgq','nhxsj',event)" value="2025-11-19"
+                                                    readonly="" style="background-color: rgb(230, 230, 230);">
                                             </td>
                                         </tr>
+                                        <tr id="nhxsj_sm">
+                                            <td></td>
+                                            <td class="TTS"><span id="nhxsj_format">日期格式:2025-10-13</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="hxjtsj_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="hxjt_time_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="hxjt_time_xs">
+                                                回校具体时间</td>
+                                        </tr>
                                         <tr>
-                                            <td style="height:100">
+                                            <td id="hxjt_time_sb" class="TDC">
+                                                申报值:
+                                            </td>
+                                            <td>
+                                                <select name="hxjt_time1" id="hxjt_time1" size="1" class="A1"
+                                                    disabled="">
+                                                    <option value="00">00</option>
+                                                    <option value="01">01</option>
+                                                    <option value="02">02</option>
+                                                    <option value="03">03</option>
+                                                    <option value="04">04</option>
+                                                    <option value="05">05</option>
+                                                    <option value="06">06</option>
+                                                    <option value="07">07</option>
+                                                    <option selected="selected" value="08">08</option>
+                                                    <option value="09">09</option>
+                                                    <option value="10">10</option>
+                                                    <option value="11">11</option>
+                                                    <option value="12">12</option>
+                                                    <option value="13">13</option>
+                                                    <option value="14">14</option>
+                                                    <option value="15">15</option>
+                                                    <option value="16">16</option>
+                                                    <option value="17">17</option>
+                                                    <option value="18">18</option>
+                                                    <option value="19">19</option>
+                                                    <option value="20">20</option>
+                                                    <option value="21">21</option>
+                                                    <option value="22">22</option>
+                                                    <option value="23">23</option>
+                                                </select>:
+                                                <select name="hxjt_time2" id="hxjt_time2" size="1" class="A1"
+                                                    disabled="">
+                                                    <option selected="selected" value="00">00</option>
+                                                    <option value="01">01</option>
+                                                    <option value="02">02</option>
+                                                    <option value="03">03</option>
+                                                    <option value="04">04</option>
+                                                    <option value="05">05</option>
+                                                    <option value="06">06</option>
+                                                    <option value="07">07</option>
+                                                    <option value="08">08</option>
+                                                    <option value="09">09</option>
+                                                    <option value="10">10</option>
+                                                    <option value="11">11</option>
+                                                    <option value="12">12</option>
+                                                    <option value="13">13</option>
+                                                    <option value="14">14</option>
+                                                    <option value="15">15</option>
+                                                    <option value="16">16</option>
+                                                    <option value="17">17</option>
+                                                    <option value="18">18</option>
+                                                    <option value="19">19</option>
+                                                    <option value="20">20</option>
+                                                    <option value="21">21</option>
+                                                    <option value="22">22</option>
+                                                    <option value="23">23</option>
+                                                    <option value="24">24</option>
+                                                    <option value="25">25</option>
+                                                    <option value="26">26</option>
+                                                    <option value="27">27</option>
+                                                    <option value="28">28</option>
+                                                    <option value="29">29</option>
+                                                    <option value="30">30</option>
+                                                    <option value="31">31</option>
+                                                    <option value="32">32</option>
+                                                    <option value="33">33</option>
+                                                    <option value="34">34</option>
+                                                    <option value="35">35</option>
+                                                    <option value="36">36</option>
+                                                    <option value="37">37</option>
+                                                    <option value="38">38</option>
+                                                    <option value="39">39</option>
+                                                    <option value="40">40</option>
+                                                    <option value="41">41</option>
+                                                    <option value="42">42</option>
+                                                    <option value="43">43</option>
+                                                    <option value="44">44</option>
+                                                    <option value="45">45</option>
+                                                    <option value="46">46</option>
+                                                    <option value="47">47</option>
+                                                    <option value="48">48</option>
+                                                    <option value="49">49</option>
+                                                    <option value="50">50</option>
+                                                    <option value="51">51</option>
+                                                    <option value="52">52</option>
+                                                    <option value="53">53</option>
+                                                    <option value="54">54</option>
+                                                    <option value="55">55</option>
+                                                    <option value="56">56</option>
+                                                    <option value="57">57</option>
+                                                    <option value="58">58</option>
+                                                    <option value="59">59</option>
+                                                </select>
+                                                <input name="hxjt_time" type="hidden" id="hxjt_time" value="08:00"
+                                                    readonly="" style="background-color: rgb(230, 230, 230);">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="qjts_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="qjts_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="qjts_xs">
+                                                请假天数</td>
+                                        </tr>
+                                        <tr>
+                                            <td id="qjts_sb" class="TDC">
+                                                申报值:
+                                            </td>
+                                            <td>
+                                                <input name="qjts" type="text" id="qjts" readonly="" size="6"
+                                                    class="TD3" maxlength="10"
+                                                    onkeydown="onkeydown1('hxjt_time','qjts',event)" value="2"
+                                                    style="background-color: rgb(230, 230, 230);">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="qgxyxhxdtxqjdkj_row" style="display: none;">
+                            <td style="text-align:center" colspan="2" class="TDP">
+                                <b>请勾选以下回校当天需请假的课节</b>
+                            </td>
+                        </tr>
+                        <tr id="xm_hxzzx_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck2_00_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck2_00_xs">
+                                                <input name="ck2_00" type="checkbox" id="ck2_00"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck2_00')" readonly=""
+                                                    disabled="">回校早自习(不上)
+                                                <input name="ck_ck2_00" type="hidden" id="ck_ck2_00" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_hx1_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck2_01_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck2_01_xs">
+                                                <input name="ck2_01" type="checkbox" id="ck2_01"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck2_01')" readonly=""
+                                                    disabled="">回校第一节课(不上)
+                                                <input name="ck_ck2_01" type="hidden" id="ck_ck2_01" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_hx2_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck2_02_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck2_02_xs">
+                                                <input name="ck2_02" type="checkbox" id="ck2_02"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck2_02')" readonly=""
+                                                    disabled="">回校第二节课(不上)
+                                                <input name="ck_ck2_02" type="hidden" id="ck_ck2_02" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_hx3_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck2_03_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck2_03_xs">
+                                                <input name="ck2_03" type="checkbox" id="ck2_03"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck2_03')" readonly=""
+                                                    disabled="">回校第三节课(不上)
+                                                <input name="ck_ck2_03" type="hidden" id="ck_ck2_03" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_hx4_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck2_04_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck2_04_xs">
+                                                <input name="ck2_04" type="checkbox" id="ck2_04"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck2_04')" readonly=""
+                                                    disabled="">回校第四节课(不上)
+                                                <input name="ck_ck2_04" type="hidden" id="ck_ck2_04" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_hx5_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck2_05_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck2_05_xs">
+                                                <input name="ck2_05" type="checkbox" id="ck2_05"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck2_05')" readonly=""
+                                                    disabled="">回校第五节课(不上)
+                                                <input name="ck_ck2_05" type="hidden" id="ck_ck2_05" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_hx6_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck2_06_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck2_06_xs">
+                                                <input name="ck2_06" type="checkbox" id="ck2_06"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck2_06')" readonly=""
+                                                    disabled="">回校第六节课(不上)
+                                                <input name="ck_ck2_06" type="hidden" id="ck_ck2_06" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_hx7_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck2_07_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck2_07_xs">
+                                                <input name="ck2_07" type="checkbox" id="ck2_07"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck2_07')" readonly=""
+                                                    disabled="">回校第七节课(不上)
+                                                <input name="ck_ck2_07" type="hidden" id="ck_ck2_07" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_hx8_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck2_08_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck2_08_xs">
+                                                <input name="ck2_08" type="checkbox" id="ck2_08"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck2_08')" readonly=""
+                                                    disabled="">回校第八节课(不上)
+                                                <input name="ck_ck2_08" type="hidden" id="ck_ck2_08" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_hxwzx_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck2_99_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck2_99_xs">
+                                                <input name="ck2_99" type="checkbox" id="ck2_99"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck2_99')" readonly=""
+                                                    disabled="">回校晚自习(不上)
+                                                <input name="ck_ck2_99" type="hidden" id="ck_ck2_99" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xm_hxbgq_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="ck2_bgq_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="ck2_bgq_xs">
+                                                <input name="ck2_bgq" type="checkbox" id="ck2_bgq"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('ck2_bgq')" readonly="" disabled="">回校不归寝
+                                                <input name="ck_ck2_bgq" type="hidden" id="ck_ck2_bgq" value="false">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="czsj_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="czsj_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="czsj_xs">
+                                                操作时间</td>
+                                        </tr>
+                                        <tr>
+                                            <td id="czsj_sb" class="TDC">
+                                                申报值:
+                                            </td>
+                                            <td>
+                                                <input name="czsj" type="text" id="czsj" value="2025-12-22 10:07:44"
+                                                    maxlength="21" class="TD1" tabindex="100"
+                                                    style="background-color: #E6E6E6"
+                                                    onkeydown="onkeydown1('ck2_bgq','czsj',event)" size="21"
+                                                    readonly="">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="czr_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="uname_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="uname_xs">
+                                                操作人</td>
+                                        </tr>
+                                        <tr>
+                                            <td id="uname_sb" class="TDC">
+                                                申报值:
+                                            </td>
+                                            <td>
+                                                <input name="uname" type="text" id="uname" value="记得改名字" maxlength="62"
+                                                    class="TD1" tabindex="100" style="background-color: #FFFFFF"
+                                                    onkeydown="onkeydown1('czsj','uname',event)" size="30" alt="">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="bzrspyj_row">
+                            <td>
+                                <table>
+                                    <tbody>
+                                        <tr id="fdyspyjdm_xs1" style="display: none;">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="fdyspyjdm_xs">
+                                                班主任审批意见</td>
+                                        </tr>
+                                        <tr>
+                                            <td id="fdyspyjdm_sb" class="TDC">
+
+                                                班主任审批意见:
+                                            </td>
+                                            <td>
+                                                <input name="fdyspsj" type="text" id="fdyspsj_text" value="同意"
+                                                    maxlength="6" class="TD1" onchange="tchang1('fdyspyj')"
+                                                    style="background-color: #E6E6E6"
+                                                    onkeydown="onkeydown1('uname','fdyspyjdm',event)" size="8"
+                                                    readonly="">
+                                                <span id="fdy">葛玉婷</span>
+                                                <br><span id="fdyspsj">2025-12-22 11:33:51</span>
+                                                <input name="fdyspyjdm" type="hidden" id="fdyspyjdm" value="1">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xyspyj_row">
+                            <td class="editVersion">
+                                <table>
+                                    <tbody>
+                                        <tr id="yxspyjdm_xs1" style="display: none;">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="yxspyjdm_xs">
+                                                学院审批意见</td>
+                                        </tr>
+                                        <tr>
+                                            <td id="yxspyjdm_sb" class="TDC">
+
+                                                学院审批意见:
+                                            </td>
+                                            <td>
+                                                <input name="yxspyj" type="text" id="yxspyj" maxlength="6" class="TD1"
+                                                    onchange="tchang1('yxspyj')" style="background-color: #E6E6E6"
+                                                    onkeydown="onkeydown1('fdyspyjdm','yxspyjdm',event)" size="8"
+                                                    readonly="" alt="">
+                                                <span id="yxspr"></span>
+                                                <br><span id="yxspsj"></span>
+                                                <input name="yxspyjdm" type="hidden" id="yxspyjdm">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+
+                            <td class="displayVersion" style="display: none;">
+                                <table>
+                                    <tbody>
+                                        <tr id="yxspyjdm_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="yxspyjdm_xs">
+                                                学院审批意见</td>
+                                        </tr>
+                                        <tr>
+                                            <td id="yxspyjdm_sb" class="TDC">
+                                                状态值:
+                                            </td>
+                                            <td>
+                                                <input name="yxspyj" type="text" id="yxspyj" maxlength="6" class="TD1"
+                                                    onchange="tchang1('yxspyj')" style="background-color: #E6E6E6"
+                                                    onkeydown="onkeydown1('fdyspyjdm','yxspyjdm',event)" size="8"
+                                                    readonly="" alt="">
+                                                <span id="yxspr"></span>
+                                                <br><span id="yxspsj"></span>
+                                                <input name="yxspyjdm" type="hidden" id="yxspyjdm">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="xxspyj_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="xjspyjdm_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="xjspyjdm_xs">
+                                                学校审批意见</td>
+                                        </tr>
+                                        <tr>
+                                            <td id="xjspyjdm_sb" class="TDC">
+                                                状态值:
+                                            </td>
+                                            <td>
+                                                <input name="xjspyj" type="text" id="xjspyj" maxlength="6" class="TD1"
+                                                    onchange="tchang1('xjspyj')" style="background-color: #E6E6E6"
+                                                    onkeydown="onkeydown1('yxspyjdm','xjspyjdm',event)" size="8"
+                                                    readonly="">
+                                                <span id="xjspr"></span>
+                                                <br><span id="xjspsj"></span>
+                                                <input name="xjspyjdm" type="hidden" id="xjspyjdm">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="sqqdpz_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="sqpzck_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="sqpzck_xs">
+                                                <input name="sqpzck" type="checkbox" id="sqpzck"
+                                                    style="height: 24px; background-color: rgb(230, 230, 230);"
+                                                    value="ON" bonclick="ckfun('sqpzck')" checked="checked" readonly=""
+                                                    disabled="">申请确定批准
+                                                <input name="ck_sqpzck" type="hidden" id="ck_sqpzck" value="True">
+                                            </td>
+                                        </tr>
+                                        <tr id="sqpzck_sm">
+                                            <td></td>
+                                            <td class="TTS">此项是作为申请最终的批准状态
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="shbtgkyfkyy_row" style="display: none;">
+                            <td style="text-align:center" colspan="2" class="TDP">
+                                <b>审核不通过可以反馈原因</b>
+                            </td>
+                        </tr>
+                        <tr id="bz_row" style="display: none;">
+                            <td class="TDB">
+                                <table>
+                                    <tbody>
+                                        <tr id="bz1_xs1">
+                                            <td class="TDC">
+                                                项目:
+                                            </td>
+                                            <td id="bz1_xs">
+                                                备注</td>
+                                        </tr>
+                                        <tr>
+                                            <td id="bz1_sb" class="TDC">
+                                                申报值:
+                                            </td>
+                                            <td>
+                                                <input name="bz1" type="text" id="bz1" size="22" class="TD1"
+                                                    maxlength="22" onkeydown="onkeydown1('sqpzck','bz1',event)"
+                                                    readonly="" style="background-color: rgb(230, 230, 230);">
                                             </td>
                                         </tr>
                                     </tbody>
@@ -2448,6 +2272,73 @@
                             </td>
                         </tr>
                     </tbody>
+                </table>
+                <br>
+                <table style="width:100%;border:0;border-collapse:collapse">
+                    <tbody>
+                        <tr>
+                            <td style="width:100%;height:23;vertical-align:bottom;white-space:nowrap;letter-spacing:normal"
+                                id="bc_xs">
+
+                                <input type="button" onclick="xj();" value="新建"
+                                    style="width:70;height: 30; color: #0000FF; font-family: 微软雅黑; font-size: 16px; background-color: #FFFFCA">
+                                &nbsp;
+
+                                <br><span id="MESSAGE" maintainstate="false"
+                                    style="font-family: 微软雅黑;font-size: 9pt;color:red"></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:center"><br><img alt="" onclick="syb();" src="img/syb.gif"><br></td>
+                        </tr>
+                        <tr>
+                            <td style="vertical-align:top">
+                                <table id="dylist" style="border:0;border-collapse:collapse">
+
+                                    <tbody>
+                                        <tr>
+                                            <td>
+                                            </td>
+                                        </tr>
+
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="width:100%;height:23;vertical-align:bottom">
+                                <br><input type="button"
+                                    onclick="window.location.href='http://stu.njevc.edu.cn/mobile/default.aspx'"
+                                    value="&lt;&lt;回首页"
+                                    style="width:100;height: 30; color: #0000FF; font-family: 微软雅黑; font-size: 16px; background-color: #FFFFCA"
+                                    alt="">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><iframe name="r_3_5" id="r_3_5" src="" width="0" height="0"
+                                    style="border:0;border-collapse:collapse"></iframe></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <iframe name="download" id="download" src="" width="0" height="0"
+                                    style="border:0;border-collapse:collapse"></iframe>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <iframe name="print_t" id="print_t" src="" width="0" height="0"
+                                    style="border:0;border-collapse:collapse"></iframe>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="height:100">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                </td>
+                </tr>
+                </tbody>
                 </table>
 
             </div>
