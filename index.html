@@ -234,6 +234,32 @@
                 const { hour, minute } = jsonData.operation_time;
                 document.getElementById('jtsj_time1').value = hour;
                 document.getElementById('jtsj_time2').value = minute;
+                
+                // Populate and set display mode dropdowns
+                const hourSelect = document.getElementById('jtsj_time1_1');
+                const minuteSelect = document.getElementById('jtsj_time2_2');
+
+                if (hourSelect && minuteSelect) {
+                    // Populate hours if they are not already there
+                    if (hourSelect.options.length === 0) {
+                        for (let i = 0; i < 24; i++) {
+                            const h = String(i).padStart(2, '0');
+                            hourSelect.add(new Option(h, h));
+                        }
+                    }
+                    
+                    // Populate minutes if they are not already there
+                    if (minuteSelect.options.length === 0) {
+                        for (let i = 0; i < 60; i++) {
+                            const m = String(i).padStart(2, '0');
+                            minuteSelect.add(new Option(m, m));
+                        }
+                    }
+
+                    // Set selected values
+                    hourSelect.value = hour;
+                    minuteSelect.value = minute;
+                }
             }
         };
 
@@ -431,10 +457,7 @@ function xzbc() {
                     const now = new Date();
                     const dateOnly = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-                    if (jsonData.operation_time) {
-                        const { hour, minute } = jsonData.operation_time;
-                        document.getElementById('jtsj_time_display_span').textContent = `${hour}:${minute}`;
-                    }
+
                     if (jsonData.approval_time) {
                         document.getElementById('fdyspsj').textContent = `${dateOnly} ${jsonData.approval_time}`;
                     }
@@ -1074,7 +1097,10 @@ function xzbc() {
                                                         <tbody>
                                                             <tr>
                                                                 <td class="TDC">具体时间:</td>
-                                                                <td class="TDD"><span id="jtsj_time_display_span"></span></td>
+                                                                <td>
+                                                                    <select name="jtsj_time1_1" id="jtsj_time1_1" size="1" class="A1"></select>:
+                                                                    <select name="jtsj_time2_2" id="jtsj_time2_2" size="1" class="A1"></select>
+                                                                </td>
                                                             </tr>
                                                         </tbody>
                                                     </table>
