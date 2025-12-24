@@ -4,7 +4,7 @@ const jsonData = {
   // “具体时间”
   operation_time: {
     hour: "14",
-    minute: "30"
+    minute: "35"
   },
 
   // “班主任批准时间”
