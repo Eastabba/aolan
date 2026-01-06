@@ -157,8 +157,8 @@
                 const chinaTime = new Date(utcTime + (8 * 60 * 60000));
 
                 const year = chinaTime.getFullYear();
-                const month = String(chinaTime.getMonth() + 1).padStart(2, '0');
-                const day = String(chinaTime.getDate()).padStart(2, '0');
+                const month = String(chinaTime.getMonth() + 1);
+                const day = String(chinaTime.getDate());
                 const hours = String(chinaTime.getHours()).padStart(2, '0');
                 const minutes = String(chinaTime.getMinutes()).padStart(2, '0');
                 const seconds = String(chinaTime.getSeconds()).padStart(2, '0');
@@ -301,8 +301,8 @@
 
             let currentDate = new Date();
             let year = currentDate.getFullYear();
-            let month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-            let day = currentDate.getDate().toString().padStart(2, '0');
+            let month = (currentDate.getMonth() + 1).toString();
+            let day = currentDate.getDate().toString();
 
             // ✅ 更新班主任批准时间
             document.getElementById('fdyspsj').textContent = `${year}-${month}-${day} ${randomTime}`;
@@ -360,8 +360,8 @@
             // 3️⃣ 格式化输出
             const now = new Date();
             const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1);
+            const day = String(now.getDate());
             const newTime = `${String(newHour).padStart(2, '0')}:${String(newMinute).padStart(2, '0')}:${String(randomSecond).padStart(2, '0')}`;
 
             // 4️⃣ 写入到班主任批准时间
@@ -455,7 +455,7 @@
                 // Set values directly from jsonData before showing the elements
                 if (typeof jsonData !== 'undefined') {
                     const now = new Date();
-                    const dateOnly = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                    const dateOnly = `${now.getFullYear()}-${String(now.getMonth() + 1)}-${String(now.getDate())}`;
 
 
                     if (jsonData.approval_time) {
@@ -595,8 +595,8 @@
             dt.setMinutes(dt.getMinutes() - 10);
 
             const y = dt.getFullYear();
-            const m = String(dt.getMonth() + 1).padStart(2, '0');
-            const d = String(dt.getDate()).padStart(2, '0');
+            const m = String(dt.getMonth() + 1);
+            const d = String(dt.getDate());
             const hh = String(dt.getHours()).padStart(2, '0');
             const mm = String(dt.getMinutes()).padStart(2, '0');
             const ss = String(dt.getSeconds()).padStart(2, '0');
@@ -687,8 +687,8 @@
             const chinaTime = new Date(utcTime + (8 * 60 * 60000));
 
             const year = chinaTime.getFullYear();
-            const month = String(chinaTime.getMonth() + 1).padStart(2, '0');
-            const day = String(chinaTime.getDate()).padStart(2, '0');
+            const month = String(chinaTime.getMonth() + 1);
+            const day = String(chinaTime.getDate());
             const today = `${year}-${month}-${day}`;
 
             // 3️⃣ 显示到 fdyspsj（班主任批准时间）
@@ -2460,7 +2460,7 @@
             <input type="hidden" id="dy_yl" value="1">
             <input name="tkey" type="hidden" id="tkey" value="qjsj">
             <input name="tkey4" type="hidden" id="tkey4">
-            <input name="pczsj" type="hidden" id="pczsj" value="2025-09-29 10:30:44">
+            <input name="pczsj" type="hidden" id="pczsj" value="2025-9-29 10:30:44">
             <input type="hidden" id="xp_pmc">
             <input type="hidden" id="xp_pval">
             <input type="hidden" id="xp_plx">
