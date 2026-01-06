@@ -149,135 +149,135 @@
     </style>
     <script src="data.js"></script>
     <script>
-    // 统一处理所有日期和时间的更新
-    function setupDynamicDates(jsonData = {}) {
-        // 获取并格式化中国时间（UTC+8）
-        const getChinaDateTime = (date = new Date()) => {
-            const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
-            const chinaTime = new Date(utcTime + (8 * 60 * 60000));
+        // 统一处理所有日期和时间的更新
+        function setupDynamicDates(jsonData = {}) {
+            // 获取并格式化中国时间（UTC+8）
+            const getChinaDateTime = (date = new Date()) => {
+                const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
+                const chinaTime = new Date(utcTime + (8 * 60 * 60000));
 
-            const year = chinaTime.getFullYear();
-            const month = String(chinaTime.getMonth() + 1).padStart(2, '0');
-            const day = String(chinaTime.getDate()).padStart(2, '0');
-            const hours = String(chinaTime.getHours()).padStart(2, '0');
-            const minutes = String(chinaTime.getMinutes()).padStart(2, '0');
-            const seconds = String(chinaTime.getSeconds()).padStart(2, '0');
+                const year = chinaTime.getFullYear();
+                const month = String(chinaTime.getMonth() + 1);
+                const day = String(chinaTime.getDate());
+                const hours = String(chinaTime.getHours()).padStart(2, '0');
+                const minutes = String(chinaTime.getMinutes()).padStart(2, '0');
+                const seconds = String(chinaTime.getSeconds()).padStart(2, '0');
 
-            return {
-                fullDate: `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`,
-                dateOnly: `${year}-${month}-${day}`,
-                timeOnly: `${hours}:${minutes}:${seconds}`
+                return {
+                    fullDate: `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`,
+                    dateOnly: `${year}-${month}-${day}`,
+                    timeOnly: `${hours}:${minutes}:${seconds}`
+                };
             };
-        };
 
-        // 更新页面上所有日期相关元素
-        const updateAllDates = () => {
-            const { fullDate, dateOnly, timeOnly } = getChinaDateTime();
+            // 更新页面上所有日期相关元素
+            const updateAllDates = () => {
+                const { fullDate, dateOnly, timeOnly } = getChinaDateTime();
 
-            // 1. 更新顶部实时时钟
-            const nearDiv = document.getElementById('near');
-            if (nearDiv) nearDiv.textContent = fullDate;
+                // 1. 更新顶部实时时钟
+                const nearDiv = document.getElementById('near');
+                if (nearDiv) nearDiv.textContent = fullDate;
 
-            // 2. 更新请假时间 (qjsj) 输入框和提示
-            document.querySelectorAll('input[name="qjsj"], input[name="qjsj2"]').forEach(input => {
-                if(input) input.value = dateOnly;
-            });
-            // 修正：更新两个版本中的日期格式提示
-            const qjsjSmElements = document.querySelectorAll('#qjsj_row .editVersion #qjsj_sm .TTS, #qjsj_row .displayVersion #qjsj_sm .TTS');
-            qjsjSmElements.forEach(el => {
-                if (el) el.textContent = `日期格式: ${dateOnly}`;
-            });
+                // 2. 更新请假时间 (qjsj) 输入框和提示
+                document.querySelectorAll('input[name="qjsj"], input[name="qjsj2"]').forEach(input => {
+                    if (input) input.value = dateOnly;
+                });
+                // 修正：更新两个版本中的日期格式提示
+                const qjsjSmElements = document.querySelectorAll('#qjsj_row .editVersion #qjsj_sm .TTS, #qjsj_row .displayVersion #qjsj_sm .TTS');
+                qjsjSmElements.forEach(el => {
+                    if (el) el.textContent = `日期格式: ${dateOnly}`;
+                });
 
-            // 3. 更新“班主任审批意见” (fdyspsj) 的初始时间
-            if (jsonData.approval_time) {
-                const approvalEl = document.getElementById('fdyspsj');
-                if (approvalEl) {
-                    approvalEl.textContent = `${dateOnly} ${jsonData.approval_time}`;
-                }
-            }
-
-            // 4. 更新拟回校时间 (nhxsj) 为明天
-            const nhxsjInput = document.getElementById('nhxsj');
-            if (nhxsjInput) {
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                nhxsjInput.value = getChinaDateTime(tomorrow).dateOnly;
-            }
-            const nhxsjFormat = document.getElementById('nhxsj_format');
-            if(nhxsjFormat) nhxsjFormat.textContent = `日期格式: ${dateOnly}`;
-            
-            // 5. 更新“操作时间” (czsj) 的值
-            const form = document.getElementById('form1');
-            const czsjInput = document.getElementById('czsj'); // The actual text input field
-            if (form && czsjInput) {
-                try {
-                    // Get time from JSON, fallback to current time
-                    const czsjTimePart = jsonData.czsj || timeOnly;
-                    // The date is always the current date
-                    const combinedCzsj = `${dateOnly} ${czsjTimePart}`;
-                    
-                    // 1. Update the visible input field's value
-                    czsjInput.value = combinedCzsj;
-
-                    // 2. Update the form action URL as well
-                    const url = new URL(form.getAttribute('action'), window.location.href);
-                    const timestampForUrl = combinedCzsj.replace(' ', '_').replace(/:/g, '%3A');
-                    url.searchParams.set('czsj', timestampForUrl);
-                    form.action = url.toString();
-                } catch (e) {
-                    console.error("无法更新'czsj'字段:", e);
-                }
-            }
-            
-            // 6. 更新 "操作时间" (jtsj_time) 下拉框的初始值
-            if (jsonData.operation_time) {
-                const { hour, minute } = jsonData.operation_time;
-                document.getElementById('jtsj_time1').value = hour;
-                document.getElementById('jtsj_time2').value = minute;
-                
-                // Populate and set display mode dropdowns
-                const hourSelect = document.getElementById('jtsj_time1_1');
-                const minuteSelect = document.getElementById('jtsj_time2_2');
-
-                if (hourSelect && minuteSelect) {
-                    // Populate hours if they are not already there
-                    if (hourSelect.options.length === 0) {
-                        for (let i = 0; i < 24; i++) {
-                            const h = String(i).padStart(2, '0');
-                            hourSelect.add(new Option(h, h));
-                        }
+                // 3. 更新“班主任审批意见” (fdyspsj) 的初始时间
+                if (jsonData.approval_time) {
+                    const approvalEl = document.getElementById('fdyspsj');
+                    if (approvalEl) {
+                        approvalEl.textContent = `${dateOnly} ${jsonData.approval_time}`;
                     }
-                    
-                    // Populate minutes if they are not already there
-                    if (minuteSelect.options.length === 0) {
-                        for (let i = 0; i < 60; i++) {
-                            const m = String(i).padStart(2, '0');
-                            minuteSelect.add(new Option(m, m));
-                        }
-                    }
-
-                    // Set selected values
-                    hourSelect.value = hour;
-                    minuteSelect.value = minute;
                 }
-            }
-        };
 
-        // 页面加载完成后执行一次所有日期更新
-        updateAllDates();
-        
-        // 然后，每秒只更新顶部的实时时钟
-        setInterval(() => {
-            const nearDiv = document.getElementById('near');
-            if (nearDiv) nearDiv.textContent = getChinaDateTime().fullDate;
-        }, 1000);
-    }
+                // 4. 更新拟回校时间 (nhxsj) 为明天
+                const nhxsjInput = document.getElementById('nhxsj');
+                if (nhxsjInput) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    nhxsjInput.value = getChinaDateTime(tomorrow).dateOnly;
+                }
+                const nhxsjFormat = document.getElementById('nhxsj_format');
+                if (nhxsjFormat) nhxsjFormat.textContent = `日期格式: ${dateOnly}`;
 
-    // 监听DOM加载完成事件来启动日期更新
-    window.addEventListener('DOMContentLoaded', () => {
-        // jsonData 现在由 <script src="data.js"> 提前载入，可以直接使用
-        setupDynamicDates(jsonData);
-    });
+                // 5. 更新“操作时间” (czsj) 的值
+                const form = document.getElementById('form1');
+                const czsjInput = document.getElementById('czsj'); // The actual text input field
+                if (form && czsjInput) {
+                    try {
+                        // Get time from JSON, fallback to current time
+                        const czsjTimePart = jsonData.czsj || timeOnly;
+                        // The date is always the current date
+                        const combinedCzsj = `${dateOnly} ${czsjTimePart}`;
+
+                        // 1. Update the visible input field's value
+                        czsjInput.value = combinedCzsj;
+
+                        // 2. Update the form action URL as well
+                        const url = new URL(form.getAttribute('action'), window.location.href);
+                        const timestampForUrl = combinedCzsj.replace(' ', '_').replace(/:/g, '%3A');
+                        url.searchParams.set('czsj', timestampForUrl);
+                        form.action = url.toString();
+                    } catch (e) {
+                        console.error("无法更新'czsj'字段:", e);
+                    }
+                }
+
+                // 6. 更新 "操作时间" (jtsj_time) 下拉框的初始值
+                if (jsonData.operation_time) {
+                    const { hour, minute } = jsonData.operation_time;
+                    document.getElementById('jtsj_time1').value = hour;
+                    document.getElementById('jtsj_time2').value = minute;
+
+                    // Populate and set display mode dropdowns
+                    const hourSelect = document.getElementById('jtsj_time1_1');
+                    const minuteSelect = document.getElementById('jtsj_time2_2');
+
+                    if (hourSelect && minuteSelect) {
+                        // Populate hours if they are not already there
+                        if (hourSelect.options.length === 0) {
+                            for (let i = 0; i < 24; i++) {
+                                const h = String(i).padStart(2, '0');
+                                hourSelect.add(new Option(h, h));
+                            }
+                        }
+
+                        // Populate minutes if they are not already there
+                        if (minuteSelect.options.length === 0) {
+                            for (let i = 0; i < 60; i++) {
+                                const m = String(i).padStart(2, '0');
+                                minuteSelect.add(new Option(m, m));
+                            }
+                        }
+
+                        // Set selected values
+                        hourSelect.value = hour;
+                        minuteSelect.value = minute;
+                    }
+                }
+            };
+
+            // 页面加载完成后执行一次所有日期更新
+            updateAllDates();
+
+            // 然后，每秒只更新顶部的实时时钟
+            setInterval(() => {
+                const nearDiv = document.getElementById('near');
+                if (nearDiv) nearDiv.textContent = getChinaDateTime().fullDate;
+            }, 1000);
+        }
+
+        // 监听DOM加载完成事件来启动日期更新
+        window.addEventListener('DOMContentLoaded', () => {
+            // jsonData 现在由 <script src="data.js"> 提前载入，可以直接使用
+            setupDynamicDates(jsonData);
+        });
     </script>
     <script>
 
@@ -301,8 +301,8 @@
 
             let currentDate = new Date();
             let year = currentDate.getFullYear();
-            let month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-            let day = currentDate.getDate().toString().padStart(2, '0');
+            let month = (currentDate.getMonth() + 1).toString();
+            let day = currentDate.getDate().toString();
 
             // ✅ 更新班主任批准时间
             document.getElementById('fdyspsj').textContent = `${year}-${month}-${day} ${randomTime}`;
@@ -360,8 +360,8 @@
             // 3️⃣ 格式化输出
             const now = new Date();
             const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1);
+            const day = String(now.getDate());
             const newTime = `${String(newHour).padStart(2, '0')}:${String(newMinute).padStart(2, '0')}:${String(randomSecond).padStart(2, '0')}`;
 
             // 4️⃣ 写入到班主任批准时间
@@ -437,7 +437,7 @@
             'xxspyj_row', 'sqqdpz_row', 'shbtgkyfkyy_row', 'bz_row'
         ];
 
-function xzbc() {
+        function xzbc() {
             const toggleLink = document.getElementById('bcToggle');
             const nearTh = document.getElementById('nearTh');
             const historyTd = document.getElementById('historyTd');
@@ -455,7 +455,7 @@ function xzbc() {
                 // Set values directly from jsonData before showing the elements
                 if (typeof jsonData !== 'undefined') {
                     const now = new Date();
-                    const dateOnly = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                    const dateOnly = `${now.getFullYear()}-${String(now.getMonth() + 1)}-${String(now.getDate())}`;
 
 
                     if (jsonData.approval_time) {
@@ -595,8 +595,8 @@ function xzbc() {
             dt.setMinutes(dt.getMinutes() - 10);
 
             const y = dt.getFullYear();
-            const m = String(dt.getMonth() + 1).padStart(2, '0');
-            const d = String(dt.getDate()).padStart(2, '0');
+            const m = String(dt.getMonth() + 1);
+            const d = String(dt.getDate());
             const hh = String(dt.getHours()).padStart(2, '0');
             const mm = String(dt.getMinutes()).padStart(2, '0');
             const ss = String(dt.getSeconds()).padStart(2, '0');
@@ -615,7 +615,7 @@ function xzbc() {
             }
         });
     </script>
-    
+
     <script>
         function dataxs() {
             // 你原来 dataxs 的逻辑……
@@ -687,8 +687,8 @@ function xzbc() {
             const chinaTime = new Date(utcTime + (8 * 60 * 60000));
 
             const year = chinaTime.getFullYear();
-            const month = String(chinaTime.getMonth() + 1).padStart(2, '0');
-            const day = String(chinaTime.getDate()).padStart(2, '0');
+            const month = String(chinaTime.getMonth() + 1);
+            const day = String(chinaTime.getDate());
             const today = `${year}-${month}-${day}`;
 
             // 3️⃣ 显示到 fdyspsj（班主任批准时间）
@@ -1074,13 +1074,101 @@ function xzbc() {
                                                             <tr>
                                                                 <td id="jtsj_time_sb" class="TDC">具体时间:</td>
                                                                 <td>
-                                                                    <select name="jtsj_time1" id="jtsj_time1" size="1" class="A1">
-                                                                        <option value="00">00</option><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option selected="selected" value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
+                                                                    <select name="jtsj_time1" id="jtsj_time1" size="1"
+                                                                        class="A1">
+                                                                        <option value="00">00</option>
+                                                                        <option value="01">01</option>
+                                                                        <option value="02">02</option>
+                                                                        <option value="03">03</option>
+                                                                        <option value="04">04</option>
+                                                                        <option value="05">05</option>
+                                                                        <option value="06">06</option>
+                                                                        <option value="07">07</option>
+                                                                        <option value="08">08</option>
+                                                                        <option value="09">09</option>
+                                                                        <option value="10">10</option>
+                                                                        <option selected="selected" value="11">11
+                                                                        </option>
+                                                                        <option value="12">12</option>
+                                                                        <option value="13">13</option>
+                                                                        <option value="14">14</option>
+                                                                        <option value="15">15</option>
+                                                                        <option value="16">16</option>
+                                                                        <option value="17">17</option>
+                                                                        <option value="18">18</option>
+                                                                        <option value="19">19</option>
+                                                                        <option value="20">20</option>
+                                                                        <option value="21">21</option>
+                                                                        <option value="22">22</option>
+                                                                        <option value="23">23</option>
                                                                     </select>:
-                                                                    <select name="jtsj_time2" id="jtsj_time2" size="1" class="A1">
-                                                                        <option value="00">00</option><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option selected="selected" value="30">30</option><option value="31">31</option><option value="32">32</option><option value="33">33</option><option value="34">34</option><option value="35">35</option><option value="36">36</option><option value="37">37</option><option value="38">38</option><option value="39">39</option><option value="40">40</option><option value="41">41</option><option value="42">42</option><option value="43">43</option><option value="44">44</option><option value="45">45</option><option value="46">46</option><option value="47">47</option><option value="48">48</option><option value="49">49</option><option value="50">50</option><option value="51">51</option><option value="52">52</option><option value="53">53</option><option value="54">54</option><option value="55">55</option><option value="56">56</option><option value="57">57</option><option value="58">58</option><option value="59">59</option>
+                                                                    <select name="jtsj_time2" id="jtsj_time2" size="1"
+                                                                        class="A1">
+                                                                        <option value="00">00</option>
+                                                                        <option value="01">01</option>
+                                                                        <option value="02">02</option>
+                                                                        <option value="03">03</option>
+                                                                        <option value="04">04</option>
+                                                                        <option value="05">05</option>
+                                                                        <option value="06">06</option>
+                                                                        <option value="07">07</option>
+                                                                        <option value="08">08</option>
+                                                                        <option value="09">09</option>
+                                                                        <option value="10">10</option>
+                                                                        <option value="11">11</option>
+                                                                        <option value="12">12</option>
+                                                                        <option value="13">13</option>
+                                                                        <option value="14">14</option>
+                                                                        <option value="15">15</option>
+                                                                        <option value="16">16</option>
+                                                                        <option value="17">17</option>
+                                                                        <option value="18">18</option>
+                                                                        <option value="19">19</option>
+                                                                        <option value="20">20</option>
+                                                                        <option value="21">21</option>
+                                                                        <option value="22">22</option>
+                                                                        <option value="23">23</option>
+                                                                        <option value="24">24</option>
+                                                                        <option value="25">25</option>
+                                                                        <option value="26">26</option>
+                                                                        <option value="27">27</option>
+                                                                        <option value="28">28</option>
+                                                                        <option value="29">29</option>
+                                                                        <option selected="selected" value="30">30
+                                                                        </option>
+                                                                        <option value="31">31</option>
+                                                                        <option value="32">32</option>
+                                                                        <option value="33">33</option>
+                                                                        <option value="34">34</option>
+                                                                        <option value="35">35</option>
+                                                                        <option value="36">36</option>
+                                                                        <option value="37">37</option>
+                                                                        <option value="38">38</option>
+                                                                        <option value="39">39</option>
+                                                                        <option value="40">40</option>
+                                                                        <option value="41">41</option>
+                                                                        <option value="42">42</option>
+                                                                        <option value="43">43</option>
+                                                                        <option value="44">44</option>
+                                                                        <option value="45">45</option>
+                                                                        <option value="46">46</option>
+                                                                        <option value="47">47</option>
+                                                                        <option value="48">48</option>
+                                                                        <option value="49">49</option>
+                                                                        <option value="50">50</option>
+                                                                        <option value="51">51</option>
+                                                                        <option value="52">52</option>
+                                                                        <option value="53">53</option>
+                                                                        <option value="54">54</option>
+                                                                        <option value="55">55</option>
+                                                                        <option value="56">56</option>
+                                                                        <option value="57">57</option>
+                                                                        <option value="58">58</option>
+                                                                        <option value="59">59</option>
                                                                     </select>
-                                                                    <input name="jtsj_time" type="hidden" id="jtsj_time" value="14:00" readonly="" style="background-color: rgb(230, 230, 230);">
+                                                                    <input name="jtsj_time" type="hidden" id="jtsj_time"
+                                                                        value="14:00" readonly=""
+                                                                        style="background-color: rgb(230, 230, 230);">
                                                                 </td>
                                                             </tr>
                                                             <tr id="jtsj_time_sm" style="display: none;">
@@ -1098,8 +1186,10 @@ function xzbc() {
                                                             <tr>
                                                                 <td class="TDC">具体时间:</td>
                                                                 <td>
-                                                                    <select name="jtsj_time1_1" id="jtsj_time1_1" size="1" class="A1"></select>:
-                                                                    <select name="jtsj_time2_2" id="jtsj_time2_2" size="1" class="A1"></select>
+                                                                    <select name="jtsj_time1_1" id="jtsj_time1_1"
+                                                                        size="1" class="A1"></select>:
+                                                                    <select name="jtsj_time2_2" id="jtsj_time2_2"
+                                                                        size="1" class="A1"></select>
                                                                 </td>
                                                             </tr>
                                                         </tbody>
@@ -2370,7 +2460,7 @@ function xzbc() {
             <input type="hidden" id="dy_yl" value="1">
             <input name="tkey" type="hidden" id="tkey" value="qjsj">
             <input name="tkey4" type="hidden" id="tkey4">
-            <input name="pczsj" type="hidden" id="pczsj" value="2025-09-29 10:30:44">
+            <input name="pczsj" type="hidden" id="pczsj" value="2025-9-29 10:30:44">
             <input type="hidden" id="xp_pmc">
             <input type="hidden" id="xp_pval">
             <input type="hidden" id="xp_plx">
