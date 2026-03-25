@@ -3,13 +3,13 @@
 const jsonData = {
   // “具体时间”
   operation_time: {
-    hour: "14",
-    minute: "10"
+    hour: "11",
+    minute: "30"
   },
 
   // “班主任批准时间”
-  approval_time: "14:15:39",
+  approval_time: "11:33:39",
 
   // “操作时间”
-  czsj: "14:10:27"
+  czsj: "10:07:27"
 };
